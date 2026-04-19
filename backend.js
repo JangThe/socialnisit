@@ -2,10 +2,12 @@ import express from 'express';
 import mysql from 'mysql2';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import cors from 'cors';
 
 const port = 3000;
 const app = express();
 app.use(express.json());
+app.use(cors());
 
 const JWT_SECRET = 'tajny-token-klic';
 
@@ -184,7 +186,34 @@ app.post('/komentare', overitPrihlaseni, (req, res) => {
         }
     );
 });
-
+app.get('/prispevky/:id', overitPrihlaseni, (req, res) => {
+    const id = req.params.id;
+    db.query(`
+        SELECT p.id, p.nadpis, p.text, p.obrazek, p.datum_vytvoreni,
+            u.id AS autor_id, u.jmeno, u.prijmeni,
+            COUNT(DISTINCT l.id) AS pocet_laiku
+        FROM prispevky p
+        JOIN uzivatele u ON p.autor_id = u.id
+        LEFT JOIN laiky l ON p.id = l.prispevek_id
+        WHERE p.id = ?
+        GROUP BY p.id
+    `, [id], (err, vysledky) => {
+        if (err) return res.status(500).json({ zprava: 'Chyba.' });
+        if (vysledky.length === 0) return res.status(404).json({ zprava: 'Nenalezen.' });
+        const prispevek = vysledky[0];
+        db.query(`
+            SELECT k.id, k.text, k.datum_vytvoreni, u.id AS autor_id, u.jmeno, u.prijmeni
+            FROM komentare k
+            JOIN uzivatele u ON k.autor_id = u.id
+            WHERE k.prispevek_id = ?
+            ORDER BY k.datum_vytvoreni DESC
+        `, [id], (err, komentare) => {
+            if (err) return res.status(500).json({ zprava: 'Chyba.' });
+            prispevek.komentare = komentare;
+            res.status(200).json(prispevek);
+        });
+    });
+});
 
 app.post('/laiky', overitPrihlaseni, (req, res) => {
     const { prispevek_id } = req.body;
@@ -204,8 +233,56 @@ app.post('/laiky', overitPrihlaseni, (req, res) => {
         }
     );
 });
+app.delete('/laiky/:prispevekId', overitPrihlaseni, (req, res) => {
+    db.query('DELETE FROM laiky WHERE uzivatel_id = ? AND prispevek_id = ?',
+        [req.uzivatel.id, req.params.prispevekId], (err, vysledek) => {
+            if (err) return res.status(500).json({ zprava: 'Chyba.' });
+            if (vysledek.affectedRows === 0) return res.status(404).json({ zprava: 'Lajk nenalezen.' });
+            res.status(200).json({ zprava: 'Lajk odebran.' });
+        });
+});
+app.get('/uzivatele', overitPrihlaseni, (req, res) => {
+    db.query('SELECT id, jmeno, prijmeni, vek, pohlavi, profilova_foto, datum_registrace FROM uzivatele ORDER BY prijmeni ASC, jmeno ASC',
+        (err, uzivatele) => {
+            if (err) return res.status(500).json({ zprava: 'Chyba.' });
+            res.status(200).json(uzivatele);
+        });
+});
 
-
+app.get('/uzivatele/:id', overitPrihlaseni, (req, res) => {
+    const id = req.params.id;
+    db.query('SELECT id, jmeno, prijmeni, vek, pohlavi, profilova_foto, datum_registrace FROM uzivatele WHERE id = ?',
+        [id], (err, vysledky) => {
+            if (err) return res.status(500).json({ zprava: 'Chyba.' });
+            if (vysledky.length === 0) return res.status(404).json({ zprava: 'Nenalezen.' });
+            const uzivatel = vysledky[0];
+            db.query(`
+                SELECT p.id, p.nadpis, p.text, p.obrazek, p.datum_vytvoreni,
+                    COUNT(DISTINCT l.id) AS pocet_laiku
+                FROM prispevky p
+                LEFT JOIN laiky l ON p.id = l.prispevek_id
+                WHERE p.autor_id = ?
+                GROUP BY p.id
+                ORDER BY p.datum_vytvoreni DESC
+            `, [id], (err, prispevky) => {
+                if (err) return res.status(500).json({ zprava: 'Chyba.' });
+                db.query(`
+                    SELECT DISTINCT p.id, p.nadpis, p.text, p.datum_vytvoreni,
+                        u.jmeno AS autor_jmeno, u.prijmeni AS autor_prijmeni
+                    FROM prispevky p
+                    JOIN uzivatele u ON p.autor_id = u.id
+                    LEFT JOIN laiky l ON p.id = l.prispevek_id AND l.uzivatel_id = ?
+                    LEFT JOIN komentare k ON p.id = k.prispevek_id AND k.autor_id = ?
+                    WHERE (l.uzivatel_id = ? OR k.autor_id = ?) AND p.autor_id != ?
+                `, [id, id, id, id, id], (err, ciziPrispevky) => {
+                    if (err) return res.status(500).json({ zprava: 'Chyba.' });
+                    uzivatel.prispevky = prispevky;
+                    uzivatel.aktivita_na_cizich = ciziPrispevky;
+                    res.status(200).json(uzivatel);
+                });
+            });
+        });
+});
 app.listen(port, () => {
     console.log(`Server bezi na portu ${port}`);
 });

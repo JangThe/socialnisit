@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrace</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="auth-wrap">
+    <div class="auth-box" style="max-width:480px">
+        <div class="auth-brand">SíťKo</div>
+        <div class="card">
+            <div class="card-title">Registrace</div>
+            <div class="row g-3">
+                <div class="col-6">
+                    <label class="form-label">Jméno</label>
+                    <input type="text" class="form-control" id="jmeno">
+                </div>
+                <div class="col-6">
+                    <label class="form-label">Příjmení</label>
+                    <input type="text" class="form-control" id="prijmeni">
+                </div>
+                <div class="col-6">
+                    <label class="form-label">Věk</label>
+                    <input type="number" class="form-control" id="vek">
+                </div>
+                <div class="col-6">
+                    <label class="form-label">Pohlaví</label>
+                    <select class="form-select" id="pohlavi">
+                        <option value="muz">Muž</option>
+                        <option value="zena">Žena</option>
+                        <option value="jine">Jiné</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" id="email">
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Heslo</label>
+                    <input type="password" class="form-control" id="heslo">
+                </div>
+            </div>
+            <div class="msg error" id="errorMsg"></div>
+            <div class="msg success" id="successMsg">Registrace OK! Přihlašuji...</div>
+            <button class="btn btn-primary" onclick="registrovat()">Zaregistrovat se</button>
+            <p class="auth-footer">Už máš účet? <a href="login.html" class="auth-link">Přihlas se</a></p>
+        </div>
+    </div>
+</div>
+<script>
+    const API = 'http://localhost:3000';
+    async function registrovat() {
+        const jmeno = document.getElementById('jmeno').value;
+        const prijmeni = document.getElementById('prijmeni').value;
+        const vek = parseInt(document.getElementById('vek').value);
+        const pohlavi = document.getElementById('pohlavi').value;
+        const email = document.getElementById('email').value;
+        const heslo = document.getElementById('heslo').value;
+        const err = document.getElementById('errorMsg');
+        const ok = document.getElementById('successMsg');
+        err.style.display = 'none';
+        if (vek < 13) { err.textContent = 'Musíš být starší 13 let.'; err.style.display = 'block'; return; }
+        const res = await fetch(`${API}/auth/registrace`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jmeno, prijmeni, vek, pohlavi, email, heslo })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            ok.style.display = 'block';
+            setTimeout(async () => {
+                const lr = await fetch(`${API}/auth/prihlaseni`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, heslo })
+                });
+                const ld = await lr.json();
+                localStorage.setItem('token', ld.token);
+                window.location.href = 'zed.html';
+            }, 1000);
+        } else {
+            err.textContent = data.zprava;
+            err.style.display = 'block';
+        }
+    }
+</script>
+</body>
+</html>

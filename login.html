@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Přihlášení</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="auth-wrap">
+    <div class="auth-box">
+        <div class="auth-brand">Síť</div>
+        <div class="card">
+            <div class="card-title">Přihlášení</div>
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-control" id="email" placeholder="tvuj@email.cz">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Heslo</label>
+                <input type="password" class="form-control" id="heslo" placeholder="••••••••">
+            </div>
+            <div class="msg error" id="errorMsg"></div>
+            <button class="btn btn-primary" onclick="prihlasit()">Přihlásit se</button>
+            <p class="auth-footer">Nemáš účet? <a href="registrace.html" class="auth-link">Zaregistruj se</a></p>
+        </div>
+    </div>
+</div>
+<script>
+    const API = 'http://localhost:3000';
+    async function prihlasit() {
+        const email = document.getElementById('email').value;
+        const heslo = document.getElementById('heslo').value;
+        const err = document.getElementById('errorMsg');
+        err.style.display = 'none';
+        const res = await fetch(`${API}/auth/prihlaseni`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, heslo })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            localStorage.setItem('token', data.token);
+            window.location.href = 'zed.html';
+        } else {
+            err.textContent = data.zprava;
+            err.style.display = 'block';
+        }
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Enter') prihlasit(); });
+</script>
+</body>
+</html>

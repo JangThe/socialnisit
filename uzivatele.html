@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uživatelé</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav>
+    <a href="zed.html" class="brand">SíťKo</a>
+    <div class="nav-links">
+        <a href="zed.html">Zeď</a>
+        <a href="uzivatele.html" class="active">Uživatelé</a>
+        <button class="btn-logout" onclick="odhlasit()">Odhlásit</button>
+    </div>
+</nav>
+<div class="main">
+    <div class="page-title">Uživatelé</div>
+    <div id="uzivatele"></div>
+</div>
+<script>
+    const API = 'http://localhost:3000';
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = 'login.html';
+    const h = () => ({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` });
+    const ini = (j, p) => (j[0] + p[0]).toUpperCase();
+
+    async function nacist() {
+        const res = await fetch(`${API}/uzivatele`, { headers: h() });
+        if (res.status === 401) { window.location.href = 'login.html'; return; }
+        const data = await res.json();
+        const c = document.getElementById('uzivatele');
+        c.innerHTML = '';
+        data.forEach(u => {
+            c.innerHTML += `
+                <a href="detail-uzivatele.html?id=${u.id}" class="user-card">
+                    <div class="avatar">${ini(u.jmeno, u.prijmeni)}</div>
+                    <div>
+                        <div class="user-name">${u.jmeno} ${u.prijmeni}</div>
+                        <div class="user-info">${u.vek} let · ${u.pohlavi || ''}</div>
+                    </div>
+                    <span class="arrow">→</span>
+                </a>`;
+        });
+    }
+
+    function odhlasit() { localStorage.removeItem('token'); window.location.href = 'login.html'; }
+    nacist();
+</script>
+</body>
+</html>
